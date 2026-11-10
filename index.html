@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full w-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lab Maya IPAS - Ekosistem & Rantai Makanan</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            green: '#2e7d32',
+                            lightgreen: '#4caf50',
+                            accent: '#ff9800',
+                            sky: '#0288d1',
+                            card: '#ffffff'
+                        }
+                    },
+                    fontFamily: {
+                        fredoka: ['Fredoka', 'sans-serif'],
+                        nunito: ['Nunito', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: 'Nunito', sans-serif;
+            overflow: hidden; /* Mencegah scrolling browser */
+            background-color: #0f172a;
+        }
+        h1, h2, h3, .font-title {
+            font-family: 'Fredoka', sans-serif;
+        }
+        /* Lock aspect ratio container */
+        .app-viewport {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; /* 16:9 ratio lock */
+            max-height: 56.25vw;
+            margin: auto;
+            position: absolute;
+            top: 0; bottom: 0; left: 0; right: 0;
+        }
+        /* Custom Scrollbar for inner readable boxes if needed */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(46, 125, 50, 0.4);
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(46, 125, 50, 0.7);
+        }
+        .pulse-anim {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(1.03); }
+        }
+    </style>
+</head>
+<body class="h-full w-full flex items-center justify-center bg-slate-900 text-slate-800">
+
+    <!-- MAIN APPLICATON VIEWPORT (16:9 Responsive Container) -->
+    <div id="app" class="app-viewport bg-emerald-50 flex flex-col shadow-2xl overflow-hidden relative sm:rounded-2xl border-4 border-emerald-600/30">
+
+        <!-- EFEK AUDIO SINTETIS (Web Audio API Engine) -->
+        <script>
+            // Audio Context Builder (Offline Native Generator)
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            let audioCtx = null;
+            let soundEnabled = true;
+
+            function initAudio() {
+                if (!audioCtx) audioCtx = new AudioContext();
+            }
+
+            function playSound(type) {
+                if (!soundEnabled) return;
+                initAudio();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'correct') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                    osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.setValueAtTime(180, now + 0.1);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'pop') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'win') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.setValueAtTime(554.37, now + 0.1);
+                    osc.frequency.setValueAtTime(659.25, now + 0.2);
+                    osc.frequency.setValueAtTime(880, now + 0.3);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                    osc.start(now);
+                    osc.stop(now + 0.6);
+                }
+            }
+
+            function toggleSound() {
+                soundEnabled = !soundEnabled;
+                const btn = document.getElementById('sound-toggle-btn');
+                if(soundEnabled) {
+                    btn.innerHTML = '<i class="fas fa-volume-up text-lg"></i>';
+                    btn.classList.replace('bg-red-500', 'bg-emerald-600');
+                    playSound('click');
+                } else {
+                    btn.innerHTML = '<i class="fas fa-volume-mute text-lg"></i>';
+                    btn.classList.replace('bg-emerald-600', 'bg-red-500');
+                }
+            }
+        </script>
+
+        <!-- SPLASH SCREEN -->
+        <div id="splash-screen" class="absolute inset-0 z-50 bg-gradient-to-br from-emerald-800 via-teal-700 to-cyan-900 flex flex-col items-center justify-between p-6 text-white text-center">
+            <!-- Header Splash -->
+            <div class="mt-4">
+                <span class="bg-amber-400 text-amber-950 text-xs sm:text-sm font-bold px-4 py-1 rounded-full uppercase tracking-wider shadow-md">
+                    <i class="fas fa-microscope mr-1"></i> Lab Maya IPAS SD - Fase C
+                </span>
+                <h1 class="text-2xl sm:text-4xl md:text-5xl font-extrabold mt-3 tracking-wide drop-shadow-md">
+                    EKOSISTEM & RANTAI MAKANAN
+                </h1>
+                <p class="text-emerald-100 text-xs sm:text-base max-w-xl mt-1">
+                    Eksplorasi interaktif hubungan antarmakhluk hidup, rantai makanan, dan keanekaragaman ekosistem.
+                </p>
+            </div>
+
+            <!-- Visual Graphic Center -->
+            <div class="flex items-center justify-center gap-4 my-2">
+                <div class="w-16 h-16 sm:w-24 sm:h-24 bg-emerald-600/60 rounded-2xl border-2 border-emerald-300 flex items-center justify-center text-3xl sm:text-5xl shadow-lg transform -rotate-6">
+                    🌱
+                </div>
+                <i class="fas fa-arrow-right text-amber-400 text-xl sm:text-2xl"></i>
+                <div class="w-16 h-16 sm:w-24 sm:h-24 bg-emerald-600/60 rounded-2xl border-2 border-emerald-300 flex items-center justify-center text-3xl sm:text-5xl shadow-lg transform rotate-3">
+                    🐰
+                </div>
+                <i class="fas fa-arrow-right text-amber-400 text-xl sm:text-2xl"></i>
+                <div class="w-16 h-16 sm:w-24 sm:h-24 bg-emerald-600/60 rounded-2xl border-2 border-emerald-300 flex items-center justify-center text-3xl sm:text-5xl shadow-lg transform -rotate-3">
+                    🦊
+                </div>
+                <i class="fas fa-arrow-right text-amber-400 text-xl sm:text-2xl"></i>
+                <div class="w-16 h-16 sm:w-24 sm:h-24 bg-emerald-600/60 rounded-2xl border-2 border-emerald-300 flex items-center justify-center text-3xl sm:text-5xl shadow-lg transform rotate-6">
+                    F
+                </div>
+            </div>
+
+            <!-- Interactive Loading & Start Area -->
+            <div class="w-full max-w-md mb-6 flex flex-col items-center">
+                <!-- Loading Progress Bar -->
+                <div id="loading-box" class="w-full mb-4">
+                    <div class="flex justify-between text-xs font-semibold mb-1 text-emerald-200">
+                        <span>Memuat Modul Lab Maya...</span>
+                        <span id="load-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-emerald-950/60 rounded-full h-3 p-0.5 border border-emerald-500/30">
+                        <div id="load-bar" class="bg-amber-400 h-full rounded-full transition-all duration-300 w-0"></div>
+                    </div>
+                </div>
+
+                <!-- Start Button (Hidden until loaded) -->
+                <button id="start-btn" onclick="startApp()" class="hidden w-full py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-amber-950 font-extrabold text-lg sm:text-xl rounded-xl shadow-lg hover:shadow-2xl transform active:scale-95 transition-all pulse-anim flex items-center justify-center gap-3">
+                    <i class="fas fa-play text-xl"></i> MULAI EKSPLORASI LAB
+                </button>
+            </div>
+        </div>
+
+        <!-- APP HEADER / NAVIGATION BAR -->
+        <header class="bg-emerald-700 text-white px-3 py-2 flex items-center justify-between shadow-md shrink-0 border-b-2 border-emerald-800">
+            <!-- App Logo/Title -->
+            <div class="flex items-center gap-2">
+                <div class="bg-amber-400 text-amber-950 p-1.5 rounded-lg flex items-center justify-center font-bold text-sm sm:text-base">
+                    <i class="fas fa-leaf"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-xs sm:text-sm leading-none">LAB MAYA IPAS</h2>
+                    <span class="text-[10px] sm:text-xs text-emerald-200">Fase C - Kelas 5 SD</span>
+                </div>
+            </div>
+
+            <!-- Nav Tabs -->
+            <nav class="flex items-center gap-1 sm:gap-2">
+                <button onclick="switchTab('teori')" id="tab-btn-teori" class="tab-btn active px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all bg-emerald-800 text-amber-300 shadow-inner">
+                    <i class="fas fa-book-open"></i> <span class="hidden sm:inline">Teori</span>
+                </button>
+                <button onclick="switchTab('prosedur')" id="tab-btn-prosedur" class="tab-btn px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all hover:bg-emerald-600/60 text-emerald-100">
+                    <i class="fas fa-list-check"></i> <span class="hidden sm:inline">Prosedur</span>
+                </button>
+                <button onclick="switchTab('simulasi')" id="tab-btn-simulasi" class="tab-btn px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all hover:bg-emerald-600/60 text-emerald-100">
+                    <i class="fas fa-flask"></i> <span class="hidden sm:inline">Simulasi</span>
+                </button>
+                <button onclick="switchTab('lkpd')" id="tab-btn-lkpd" class="tab-btn px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all hover:bg-emerald-600/60 text-emerald-100">
+                    <i class="fas fa-file-pen"></i> <span class="hidden sm:inline">LKPD</span>
+                </button>
+                <button onclick="switchTab('pengembang')" id="tab-btn-pengembang" class="tab-btn px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all hover:bg-emerald-600/60 text-emerald-100">
+                    <i class="fas fa-user-gear"></i> <span class="hidden sm:inline">Pengembang</span>
+                </button>
+            </nav>
+
+            <!-- Global Utility Controls -->
+            <div class="flex items-center gap-2">
+                <button id="sound-toggle-btn" onclick="toggleSound()" class="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center text-white transition-all shadow" title="Efek Suara ON/OFF">
+                    <i class="fas fa-volume-up text-xs sm:text-sm"></i>
+                </button>
+                <button onclick="resetCurrentTab()" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold text-xs flex items-center gap-1 shadow transition-all" title="Reset Halaman Ini">
+                    <i class="fas fa-rotate-right"></i> <span class="hidden md:inline">Reset</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN DISPLAY AREA (TAB CONTENTS) -->
+        <main class="flex-1 relative overflow-hidden bg-slate-100">
+
+            <!-- 1. TAB TEORI -->
+            <section id="tab-teori" class="tab-content absolute inset-0 p-3 sm:p-5 overflow-y-auto custom-scroll flex flex-col gap-4">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-emerald-100">
+                    <h2 class="text-lg sm:text-xl font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                        <i class="fas fa-tree text-emerald-600"></i> Apa itu Ekosistem?
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                        Ekosistem adalah hubungan timbal balik antara makhluk hidup (unsur <strong>Biotik</strong>) dengan lingkungan tidak hidupnya (unsur <strong>Abiotik</strong>). Unsur biotik contohnya tumbuhan, hewan, dan jamur. Unsur abiotik contohnya air, tanah, udara, dan sinar matahari.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Rantai Makanan -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-base sm:text-lg font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                                <i class="fas fa-link text-amber-500"></i> Rantai Makanan
+                            </h3>
+                            <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-3">
+                                Rantai makanan adalah peristiwa <strong>makan dan dimakan</strong> antarmakhluk hidup dengan urutan tertentu secara linier tunggal.
+                            </p>
+                            <div class="bg-emerald-50 p-2.5 rounded-lg border border-emerald-200 text-xs space-y-1.5">
+                                <div><strong class="text-emerald-700">1. Produsen:</strong> Tumbuhan hijau (membuat makanan sendiri lewat fotosintesis).</div>
+                                <div><strong class="text-emerald-700">2. Konsumen I:</strong> Hewan Herbivora (pemakan tumbuhan).</div>
+                                <div><strong class="text-emerald-700">3. Konsumen II & III:</strong> Hewan Karnivora/Omnivora (pemakan daging/segalanya).</div>
+                                <div><strong class="text-emerald-700">4. Pengurai (Dekomposer):</strong> Jamur/Bakteri yang menguraikan bangkai.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Jaring-jaring Makanan -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-base sm:text-lg font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                                <i class="fas fa-project-diagram text-sky-500"></i> Jaring-Jaring Makanan
+                            </h3>
+                            <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-3">
+                                Di alam nyata, satu jenis produsen bisa dimakan oleh banyak konsumen. <strong>Jaring-jaring makanan</strong> adalah gabungan dari beberapa rantai makanan yang saling berhubungan dan lebih kompleks.
+                            </p>
+                            <div class="bg-sky-50 p-3 rounded-lg border border-sky-200 text-xs text-sky-900">
+                                <i class="fas fa-lightbulb text-amber-500 mr-1"></i>
+                                <strong>Keseimbangan Ekosistem:</strong> Jika salah satu komponen mahluk hidup berkurang secara drastis atau punah, maka mahluk hidup yang lain dalam jaring-jaring makanan akan ikut terganggu!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. TAB PROSEDUR -->
+            <section id="tab-prosedur" class="tab-content absolute inset-0 p-3 sm:p-5 overflow-y-auto custom-scroll hidden">
+                <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-emerald-100 max-w-4xl mx-auto space-y-4">
+                    <h2 class="text-lg sm:text-xl font-bold text-emerald-800 flex items-center gap-2 border-b pb-2 border-slate-100">
+                        <i class="fas fa-clipboard-list text-emerald-600"></i> Petunjuk & Prosedur Penggunaan Lab Maya
+                    </h2>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="bg-amber-50 p-3 rounded-xl border border-amber-200">
+                            <div class="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center font-bold text-sm mb-2">1</div>
+                            <h4 class="font-bold text-sm text-amber-900 mb-1">Simulasi Rantai Makanan</h4>
+                            <p class="text-xs text-slate-600">Pilih organisme pada slot yang kosong sesuai urutannya: Produsen &rarr; Konsumen I &rarr; Konsumen II &rarr; Konsumen III &rarr; Pengurai.</p>
+                        </div>
+
+                        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                            <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold text-sm mb-2">2</div>
+                            <h4 class="font-bold text-sm text-emerald-900 mb-1">Simulasi Jaring-jaring</h4>
+                            <p class="text-xs text-slate-600">Klik tombol (+ / -) populasi organisme untuk melihat dampak keseimbangan populasi makhluk hidup lainnya dalam ekosistem.</p>
+                        </div>
+
+                        <div class="bg-sky-50 p-3 rounded-xl border border-sky-200">
+                            <div class="w-8 h-8 bg-sky-600 text-white rounded-lg flex items-center justify-center font-bold text-sm mb-2">3</div>
+                            <h4 class="font-bold text-sm text-sky-900 mb-1">Pengerjaan LKPD</h4>
+                            <p class="text-xs text-slate-600">Buka Tab LKPD, jawab 10 soal interaktif pilihan ganda, lalu klik tombol "Periksa Jawaban" untuk melihat skor otomatis.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs text-slate-600 flex items-center gap-3">
+                        <i class="fas fa-info-circle text-emerald-600 text-xl"></i>
+                        <span>Gunakan tombol <strong>Reset</strong> di pojok kanan atas layar jika Anda ingin mengulang percobaan dari awal.</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. TAB SIMULASI INTERAKTIF -->
+            <section id="tab-simulasi" class="tab-content absolute inset-0 p-2 sm:p-4 hidden flex flex-col justify-between">
+                
+                <!-- Sub-nav Mode Simulasi -->
+                <div class="flex justify-center gap-2 mb-2">
+                    <button onclick="setSimMode('chain')" id="btn-sim-chain" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-700 text-white shadow-sm border border-emerald-600">
+                        <i class="fas fa-link mr-1"></i> Mode 1: Susun Rantai Makanan
+                    </button>
+                    <button onclick="setSimMode('web')" id="btn-sim-web" class="px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-300 shadow-sm">
+                        <i class="fas fa-network-wired mr-1"></i> Mode 2: Dinamika Jaring-Jaring
+                    </button>
+                </div>
+
+                <!-- SIMULASI MODE 1: RANTAI MAKANAN (Interactive Drag & Drop/Click) -->
+                <div id="sim-mode-chain" class="flex-1 flex flex-col justify-between bg-white rounded-xl p-3 shadow-sm border border-emerald-100">
+                    <div class="text-center">
+                        <h3 class="text-sm sm:text-base font-bold text-emerald-900">Susun Rantai Makanan Ekosistem Sawah</h3>
+                        <p class="text-[11px] sm:text-xs text-slate-500">Klik slot kosong lalu pilih organisme yang tepat di bawah!</p>
+                    </div>
+
+                    <!-- Target Slots Area -->
+                    <div class="grid grid-cols-5 gap-1.5 sm:gap-3 my-auto max-w-3xl mx-auto w-full">
+                        <!-- Slot Produsen -->
+                        <div onclick="selectSlot(0)" id="slot-0" class="slot-box border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl p-1.5 text-center flex flex-col items-center justify-center min-h-[90px] sm:min-h-[110px] cursor-pointer hover:border-emerald-500 transition-all">
+                            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded mb-1">PRODUSEN</span>
+                            <div id="slot-0-content" class="text-2xl sm:text-4xl my-1">❓</div>
+                            <span id="slot-0-label" class="text-[10px] sm:text-xs text-slate-400 font-medium">Pilih Organisme</span>
+                        </div>
+                        <!-- Slot Konsumen I -->
+                        <div onclick="selectSlot(1)" id="slot-1" class="slot-box border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl p-1.5 text-center flex flex-col items-center justify-center min-h-[90px] sm:min-h-[110px] cursor-pointer hover:border-emerald-500 transition-all">
+                            <span class="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded mb-1">KONSUMEN I</span>
+                            <div id="slot-1-content" class="text-2xl sm:text-4xl my-1">❓</div>
+                            <span id="slot-1-label" class="text-[10px] sm:text-xs text-slate-400 font-medium">Pilih Organisme</span>
+                        </div>
+                        <!-- Slot Konsumen II -->
+                        <div onclick="selectSlot(2)" id="slot-2" class="slot-box border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl p-1.5 text-center flex flex-col items-center justify-center min-h-[90px] sm:min-h-[110px] cursor-pointer hover:border-emerald-500 transition-all">
+                            <span class="text-[10px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded mb-1">KONSUMEN II</span>
+                            <div id="slot-2-content" class="text-2xl sm:text-4xl my-1">❓</div>
+                            <span id="slot-2-label" class="text-[10px] sm:text-xs text-slate-400 font-medium">Pilih Organisme</span>
+                        </div>
+                        <!-- Slot Konsumen III -->
+                        <div onclick="selectSlot(3)" id="slot-3" class="slot-box border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl p-1.5 text-center flex flex-col items-center justify-center min-h-[90px] sm:min-h-[110px] cursor-pointer hover:border-emerald-500 transition-all">
+                            <span class="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded mb-1">KONSUMEN III</span>
+                            <div id="slot-3-content" class="text-2xl sm:text-4xl my-1">❓</div>
+                            <span id="slot-3-label" class="text-[10px] sm:text-xs text-slate-400 font-medium">Pilih Organisme</span>
+                        </div>
+                        <!-- Slot Pengurai -->
+                        <div onclick="selectSlot(4)" id="slot-4" class="slot-box border-2 border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl p-1.5 text-center flex flex-col items-center justify-center min-h-[90px] sm:min-h-[110px] cursor-pointer hover:border-emerald-500 transition-all">
+                            <span class="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded mb-1">PENGURAI</span>
+                            <div id="slot-4-content" class="text-2xl sm:text-4xl my-1">❓</div>
+                            <span id="slot-4-label" class="text-[10px] sm:text-xs text-slate-400 font-medium">Pilih Organisme</span>
+                        </div>
+                    </div>
+
+                    <!-- Available Organism Bank -->
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <div class="text-[11px] font-bold text-slate-500 mb-1.5 text-center">PILIHAN ORGANISME (Klik untuk memasukkan ke slot aktif):</div>
+                        <div id="organism-bank" class="flex flex-wrap justify-center gap-2">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Verification Message -->
+                    <div id="chain-feedback" class="text-center font-bold text-xs sm:text-sm h-6 flex items-center justify-center text-slate-600">
+                        Pilih slot berwarna kuning lalu sentuh makhluk hidup yang cocok.
+                    </div>
+                </div>
+
+                <!-- SIMULASI MODE 2: JARING-JARING MAKANAN & DINAMIKA POPULASI -->
+                <div id="sim-mode-web" class="hidden flex-1 flex-col justify-between bg-white rounded-xl p-3 shadow-sm border border-emerald-100 overflow-hidden">
+                    <div class="text-center mb-1">
+                        <h3 class="text-sm sm:text-base font-bold text-emerald-900">Simulasi Populer & Keseimbangan Jaring-Jaring Makanan</h3>
+                        <p class="text-[11px] text-slate-500">Ubah jumlah populasi spesies tertentu dan amati dampaknya pada ekosistem kebun!</p>
+                    </div>
+
+                    <!-- Web Grid Area -->
+                    <div class="grid grid-cols-3 gap-2 my-auto max-w-2xl mx-auto w-full">
+                        
+                        <!-- Padi/Rumput -->
+                        <div class="bg-emerald-50 border border-emerald-300 p-2 rounded-xl text-center flex flex-col items-center justify-center">
+                            <span class="text-2xl sm:text-3xl">🌾</span>
+                            <span class="font-bold text-xs text-emerald-900 mt-1">Rumput / Padi</span>
+                            <span class="text-[10px] text-emerald-600 font-semibold">Produsen</span>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button onclick="changePop('rumput', -10)" class="w-6 h-6 bg-emerald-200 text-emerald-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-emerald-300">-</button>
+                                <span id="pop-rumput" class="font-extrabold text-xs text-slate-800 w-8">100%</span>
+                                <button onclick="changePop('rumput', 10)" class="w-6 h-6 bg-emerald-200 text-emerald-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-emerald-300">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Belalang -->
+                        <div class="bg-amber-50 border border-amber-300 p-2 rounded-xl text-center flex flex-col items-center justify-center">
+                            <span class="text-2xl sm:text-3xl">🦗</span>
+                            <span class="font-bold text-xs text-amber-900 mt-1">Belalang</span>
+                            <span class="text-[10px] text-amber-600 font-semibold">Konsumen I</span>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button onclick="changePop('belalang', -10)" class="w-6 h-6 bg-amber-200 text-amber-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-amber-300">-</button>
+                                <span id="pop-belalang" class="font-extrabold text-xs text-slate-800 w-8">50%</span>
+                                <button onclick="changePop('belalang', 10)" class="w-6 h-6 bg-amber-200 text-amber-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-amber-300">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Tikus -->
+                        <div class="bg-amber-50 border border-amber-300 p-2 rounded-xl text-center flex flex-col items-center justify-center">
+                            <span class="text-2xl sm:text-3xl">🐀</span>
+                            <span class="font-bold text-xs text-amber-900 mt-1">Tikus</span>
+                            <span class="text-[10px] text-amber-600 font-semibold">Konsumen I</span>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button onclick="changePop('tikus', -10)" class="w-6 h-6 bg-amber-200 text-amber-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-amber-300">-</button>
+                                <span id="pop-tikus" class="font-extrabold text-xs text-slate-800 w-8">50%</span>
+                                <button onclick="changePop('tikus', 10)" class="w-6 h-6 bg-amber-200 text-amber-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-amber-300">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Katak -->
+                        <div class="bg-orange-50 border border-orange-300 p-2 rounded-xl text-center flex flex-col items-center justify-center">
+                            <span class="text-2xl sm:text-3xl">🐸</span>
+                            <span class="font-bold text-xs text-orange-900 mt-1">Katak</span>
+                            <span class="text-[10px] text-orange-600 font-semibold">Konsumen II</span>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button onclick="changePop('katak', -10)" class="w-6 h-6 bg-orange-200 text-orange-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-orange-300">-</button>
+                                <span id="pop-katak" class="font-extrabold text-xs text-slate-800 w-8">40%</span>
+                                <button onclick="changePop('katak', 10)" class="w-6 h-6 bg-orange-200 text-orange-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-orange-300">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Ular -->
+                        <div class="bg-red-50 border border-red-300 p-2 rounded-xl text-center flex flex-col items-center justify-center">
+                            <span class="text-2xl sm:text-3xl">🐍</span>
+                            <span class="font-bold text-xs text-red-900 mt-1">Ular</span>
+                            <span class="text-[10px] text-red-600 font-semibold">Konsumen II/III</span>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button onclick="changePop('ular', -10)" class="w-6 h-6 bg-red-200 text-red-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-red-300">-</button>
+                                <span id="pop-ular" class="font-extrabold text-xs text-slate-800 w-8">30%</span>
+                                <button onclick="changePop('ular', 10)" class="w-6 h-6 bg-red-200 text-red-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-red-300">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Elang -->
+                        <div class="bg-purple-50 border border-purple-300 p-2 rounded-xl text-center flex flex-col items-center justify-center">
+                            <span class="text-2xl sm:text-3xl">🦅</span>
+                            <span class="font-bold text-xs text-purple-900 mt-1">Elang</span>
+                            <span class="text-[10px] text-purple-600 font-semibold">Puncak (Konsumen III)</span>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button onclick="changePop('elang', -10)" class="w-6 h-6 bg-purple-200 text-purple-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-purple-300">-</button>
+                                <span id="pop-elang" class="font-extrabold text-xs text-slate-800 w-8">20%</span>
+                                <button onclick="changePop('elang', 10)" class="w-6 h-6 bg-purple-200 text-purple-900 font-bold rounded flex items-center justify-center text-xs shadow hover:bg-purple-300">+</button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Dynamic Status Log Box -->
+                    <div id="web-log" class="bg-slate-800 text-emerald-400 p-2.5 rounded-lg text-xs font-mono border border-slate-700 min-h-[48px] flex items-center justify-center text-center">
+                        Ekosistem dalam kondisi seimbang. Cobalah menambah/mengurangi populasi spesies di atas!
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- 4. TAB LKPD (10 Soal Interaktif Fase C) -->
+            <section id="tab-lkpd" class="tab-content absolute inset-0 p-3 sm:p-5 overflow-y-auto custom-scroll hidden">
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-emerald-100 max-w-4xl mx-auto space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 border-slate-200 gap-2">
+                        <div>
+                            <h2 class="text-lg sm:text-xl font-bold text-emerald-800">LKPD Interaktif - Lembar Kerja Siswa</h2>
+                            <p class="text-xs text-slate-500">Mata Pelajaran IPAS Kelas 5 SD | Materi Ekosistem & Rantai Makanan</p>
+                        </div>
+                        <div id="score-badge" class="hidden bg-emerald-600 text-white font-extrabold px-4 py-2 rounded-xl text-sm shadow">
+                            Skor Anda: <span id="user-score">0</span> / 100
+                        </div>
+                    </div>
+
+                    <!-- Form 10 Soal -->
+                    <form id="lkpd-form" onsubmit="event.preventDefault(); evaluateLKPD();" class="space-y-4">
+                        <div id="quiz-container" class="space-y-4">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-200 flex justify-end gap-3">
+                            <button type="button" onclick="resetLKPD()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs sm:text-sm transition-all">
+                                Ulangi Soal
+                            </button>
+                            <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-2">
+                                <i class="fas fa-check-circle"></i> Periksa Jawaban
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- 5. TAB PENGEMBANG -->
+            <section id="tab-pengembang" class="tab-content absolute inset-0 p-3 sm:p-5 overflow-y-auto custom-scroll hidden">
+                <div class="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-emerald-100 max-w-2xl mx-auto text-center space-y-4">
+                    <div class="w-20 h-20 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner border-2 border-emerald-300">
+                        👨‍🏫
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-extrabold text-emerald-900">Guru Pengembang Lab Maya</h2>
+                        <p class="text-xs text-emerald-600 font-semibold">Pengembang Laboratorium Virtual IPAS SD (Fase C)</p>
+                    </div>
+
+                    <div class="bg-emerald-50/60 p-4 rounded-xl border border-emerald-200 text-left space-y-2 text-xs sm:text-sm text-slate-700">
+                        <div class="flex justify-between border-b border-emerald-100 pb-1">
+                            <span class="font-bold text-slate-500">Mata Pelajaran:</span>
+                            <span class="font-semibold text-emerald-900">IPAS (Ilmu Pengetahuan Alam dan Sosial)</span>
+                        </div>
+                        <div class="flex justify-between border-b border-emerald-100 pb-1">
+                            <span class="font-bold text-slate-500">Target Siswa:</span>
+                            <span class="font-semibold text-emerald-900">Kelas 5 SD / Fase C</span>
+                        </div>
+                        <div class="flex justify-between border-b border-emerald-100 pb-1">
+                            <span class="font-bold text-slate-500">Materi Pokok:</span>
+                            <span class="font-semibold text-emerald-900">Ekosistem, Rantai Makanan & Jaring-Jaring Makanan</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-bold text-slate-500">Mode Platform:</span>
+                            <span class="font-semibold text-emerald-900">Stand-Alone Offline Ready (16:9 Full Screen)</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-amber-50 text-amber-900 rounded-xl text-xs border border-amber-200">
+                        <i class="fas fa-heart text-red-500 mr-1"></i> Didedikasikan untuk meningkatkan literasi sains siswa Sekolah Dasar melalui media pembelajaran digital interaktif.
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- LOGIKA JAVASCRIPT APLIKASI -->
+    <script>
+        // Fake Loading Animation Splash Screen
+        window.addEventListener('DOMContentLoaded', () => {
+            let progress = 0;
+            const bar = document.getElementById('load-bar');
+            const percent = document.getElementById('load-percent');
+            const startBtn = document.getElementById('start-btn');
+            const loadBox = document.getElementById('loading-box');
+
+            const interval = setInterval(() => {
+                progress += Math.floor(Math.random() * 25) + 10;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        loadBox.classList.add('hidden');
+                        startBtn.classList.remove('hidden');
+                    }, 300);
+                }
+                bar.style.width = progress + '%';
+                percent.innerText = progress + '%';
+            }, 120);
+
+            // Render Questions into LKPD
+            renderQuiz();
+            initChainSim();
+        });
+
+        function startApp() {
+            playSound('win');
+            document.getElementById('splash-screen').classList.add('hidden');
+        }
+
+        // TAB NAVIGATION SYSTEM
+        function switchTab(tabId) {
+            playSound('click');
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            // Remove active classes on buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-emerald-800', 'text-amber-300', 'shadow-inner');
+                btn.classList.add('hover:bg-emerald-600/60', 'text-emerald-100');
+            });
+
+            // Show selected tab
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            // Highlight button
+            const activeBtn = document.getElementById('tab-btn-' + tabId);
+            activeBtn.classList.add('bg-emerald-800', 'text-amber-300', 'shadow-inner');
+            activeBtn.classList.remove('hover:bg-emerald-600/60', 'text-emerald-100');
+        }
+
+        function resetCurrentTab() {
+            playSound('pop');
+            resetChainSim();
+            resetPopSim();
+            resetLKPD();
+        }
+
+        // ================= SIMULASI MODE 1: RANTAI MAKANAN =================
+        const organismData = [
+            { id: 'padi', name: 'Padi/Rumput', icon: '🌾', role: 0 },
+            { id: 'belalang', name: 'Belalang', icon: '🦗', role: 1 },
+            { id: 'katak', name: 'Katak', icon: '🐸', role: 2 },
+            { id: 'ular', name: 'Ular', icon: '🐍', role: 3 },
+            { id: 'jamur', name: 'Jamur Dekomposer', icon: '🍄', role: 4 },
+            { id: 'elang', name: 'Burung Elang', icon: '🦅', role: 3 },
+            { id: 'kelinci', name: 'Kelinci', icon: '🐰', role: 1 }
+        ];
+
+        let selectedSlotIndex = 0;
+        let userChain = [null, null, null, null, null];
+
+        function initChainSim() {
+            const bank = document.getElementById('organism-bank');
+            bank.innerHTML = '';
+            organismData.forEach(org => {
+                const item = document.createElement('button');
+                item.className = "bg-white hover:bg-emerald-50 border border-slate-300 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-700 shadow-sm active:scale-95 transition-all";
+                item.onclick = () => placeOrganism(org);
+                item.innerHTML = `<span class="text-xl">${org.icon}</span> <span>${org.name}</span>`;
+                bank.appendChild(item);
+            });
+            highlightSlot(0);
+        }
+
+        function selectSlot(idx) {
+            playSound('click');
+            selectedSlotIndex = idx;
+            highlightSlot(idx);
+        }
+
+        function highlightSlot(idx) {
+            document.querySelectorAll('.slot-box').forEach((box, i) => {
+                if (i === idx) {
+                    box.classList.add('border-amber-400', 'bg-amber-50/70', 'ring-2', 'ring-amber-300');
+                } else {
+                    box.classList.remove('border-amber-400', 'bg-amber-50/70', 'ring-2', 'ring-amber-300');
+                }
+            });
+        }
+
+        function placeOrganism(org) {
+            playSound('pop');
+            userChain[selectedSlotIndex] = org;
+            
+            // Update UI Slot
+            document.getElementById(`slot-${selectedSlotIndex}-content`).innerText = org.icon;
+            document.getElementById(`slot-${selectedSlotIndex}-label`).innerText = org.name;
+            document.getElementById(`slot-${selectedSlotIndex}-label`).classList.replace('text-slate-400', 'text-emerald-800');
+
+            // Move highlight to next empty slot if available
+            const nextEmpty = userChain.findIndex(item => item === null);
+            if (nextEmpty !== -1) {
+                selectedSlotIndex = nextEmpty;
+                highlightSlot(selectedSlotIndex);
+            }
+
+            checkChainComplete();
+        }
+
+        function checkChainComplete() {
+            const feedback = document.getElementById('chain-feedback');
+            if (userChain.every(item => item !== null)) {
+                // Verify logic order: role 0 -> role 1 -> role 2 -> role 3 -> role 4
+                const isCorrect = userChain[0].role === 0 && 
+                                  userChain[1].role === 1 && 
+                                  userChain[2].role === 2 && 
+                                  userChain[3].role === 3 && 
+                                  userChain[4].role === 4;
+
+                if (isCorrect) {
+                    playSound('correct');
+                    feedback.innerHTML = `<span class="text-emerald-600 font-extrabold"><i class="fas fa-circle-check mr-1"></i> HEBAT! Rantai makanan yang kamu susun BENAR & SEIMBANG!</span>`;
+                } else {
+                    playSound('wrong');
+                    feedback.innerHTML = `<span class="text-red-500 font-extrabold"><i class="fas fa-triangle-exclamation mr-1"></i> Urutan kurang tepat. Pastikan urutan: Produsen &rarr; Konsumen I &rarr; Konsumen II &rarr; Konsumen III &rarr; Pengurai.</span>`;
+                }
+            }
+        }
+
+        function resetChainSim() {
+            userChain = [null, null, null, null, null];
+            for (let i = 0; i < 5; i++) {
+                document.getElementById(`slot-${i}-content`).innerText = '❓';
+                document.getElementById(`slot-${i}-label`).innerText = 'Pilih Organisme';
+                document.getElementById(`slot-${i}-label`).className = 'text-[10px] sm:text-xs text-slate-400 font-medium';
+            }
+            document.getElementById('chain-feedback').innerText = 'Pilih slot berwarna kuning lalu sentuh makhluk hidup yang cocok.';
+            selectedSlotIndex = 0;
+            highlightSlot(0);
+        }
+
+        // ================= SIMULASI MODE 2: JARING-JARING MAKANAN =================
+        function setSimMode(mode) {
+            playSound('click');
+            const chainView = document.getElementById('sim-mode-chain');
+            const webView = document.getElementById('sim-mode-web');
+            const btnChain = document.getElementById('btn-sim-chain');
+            const btnWeb = document.getElementById('btn-sim-web');
+
+            if (mode === 'chain') {
+                chainView.classList.remove('hidden');
+                webView.classList.add('hidden');
+                btnChain.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-700 text-white shadow-sm border border-emerald-600';
+                btnWeb.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-300 shadow-sm';
+            } else {
+                chainView.classList.add('hidden');
+                webView.classList.remove('hidden');
+                btnWeb.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-700 text-white shadow-sm border border-emerald-600';
+                btnChain.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-300 shadow-sm';
+            }
+        }
+
+        let populations = {
+            rumput: 100,
+            belalang: 50,
+            tikus: 50,
+            katak: 40,
+            ular: 30,
+            elang: 20
+        };
+
+        function changePop(species, val) {
+            playSound('pop');
+            populations[species] = Math.max(0, Math.min(200, populations[species] + val));
+            document.getElementById(`pop-${species}`).innerText = populations[species] + '%';
+            
+            // Ecosystem Response Logic Simulation
+            let logMsg = "";
+            if (species === 'rumput' && val < 0) {
+                populations.belalang = Math.max(0, populations.belalang - 10);
+                populations.tikus = Math.max(0, populations.tikus - 10);
+                logMsg = "⚠️ Rumput berkurang! Belalang dan Tikus kekurangan makanan sehingga populasi menurun.";
+            } else if (species === 'ular' && val < 0) {
+                populations.katak = Math.min(150, populations.katak + 10);
+                populations.tikus = Math.min(150, populations.tikus + 10);
+                logMsg = "⚠️ Ular berkurang (diburu)! Populasi Katak dan Tikus melonjak karena pemangsa berkurang!";
+            } else if (species === 'tikus' && val > 0) {
+                populations.rumput = Math.max(10, populations.rumput - 15);
+                logMsg = "⚠️ Hama Tikus melonjak! Tanaman Rumput/Padi habis dimakan!";
+            } else {
+                logMsg = `Populasi ${species.toUpperCase()} diubah menjadi ${populations[species]}%. Perhatikan rantai makanan interaksi spesies lain.`;
+            }
+
+            // Sync UI text display for affected animals
+            Object.keys(populations).forEach(k => {
+                document.getElementById(`pop-${k}`).innerText = populations[k] + '%';
+            });
+
+            document.getElementById('web-log').innerText = logMsg;
+        }
+
+        function resetPopSim() {
+            populations = { rumput: 100, belalang: 50, tikus: 50, katak: 40, ular: 30, elang: 20 };
+            Object.keys(populations).forEach(k => {
+                document.getElementById(`pop-${k}`).innerText = populations[k] + '%';
+            });
+            document.getElementById('web-log').innerText = "Ekosistem dalam kondisi seimbang. Cobalah menambah/mengurangi populasi spesies di atas!";
+        }
+
+        // ================= 10 SOAL LKPD INTERAKTIF (Fase C Kelas 5) =================
+        const lkpdQuestions = [
+            {
+                q: "1. Komponen biotik yang berperan membuat makanan sendiri melalui proses fotosintesis dalam ekosistem disebut...",
+                options: ["Konsumen I", "Produsen", "Pengurai", "Abiotik"],
+                answer: 1
+            },
+            {
+                q: "2. Di ekosistem sawah, hewan yang menduduki tingkat trofik sebagai Konsumen I (Herbivora) adalah...",
+                options: ["Ular", "Burung Elang", "Belalang", "Jamur"],
+                answer: 2
+            },
+            {
+                q: "3. Perhatikan urutan berikut: Rumput → Kelinci → Serigala → Bakteri. Serigala berperan sebagai...",
+                options: ["Produsen", "Konsumen I", "Konsumen II", "Pengurai"],
+                answer: 2
+            },
+            {
+                q: "4. Organisme yang bertugas menguraikan sisa makhluk hidup yang telah mati menjadi zat hara tanah adalah...",
+                options: ["Tumbuhan Hijau", "Dekomposer / Pengurai", "Karnivora", "Omnivora"],
+                answer: 1
+            },
+            {
+                q: "5. Apa yang dimaksud dengan Jaring-Jaring Makanan?",
+                options: [
+                    "Kumpulan dari beberapa rantai makanan yang saling berhubungan",
+                    "Urutan makan dan dimakan tunggal",
+                    "Hubungan antara benda mati dan tanah",
+                    "Proses fotosintesis pada tumbuhan"
+                ],
+                answer: 0
+            },
+            {
+                q: "6. Jika populasi ular di sawah mendadak punah karena diburu manusia, dampak langsung yang akan terjadi adalah...",
+                options: [
+                    "Populasi padi meningkat pesat",
+                    "Populasi tikus meningkat drastis hingga merusak padi",
+                    "Populasi elang bertambah banyak",
+                    "Tidak terjadi perubahan apa-apa"
+                ],
+                answer: 1
+            },
+            {
+                q: "7. Berikut ini yang termasuk dalam komponen ABIOTIK dalam ekosistem laut adalah...",
+                options: ["Ikan Kecil dan Terumbu Karang", "Air Asin, Cahaya Matahari, dan Pasir", "Fitoplankton dan Zooplankton", "Cumi-cumi dan Ubur-ubur"],
+                answer: 1
+            },
+            {
+                q: "8. Hewan pemakan segala (tumbuhan dan daging) disebut omnivora. Contoh konsumen omnivora adalah...",
+                options: ["Sapi dan Kambing", "Harimau dan Singa", "Ayam dan Tikus", "Elang dan Ular"],
+                answer: 2
+            },
+            {
+                q: "9. Dalam rantai makanan, energi utama yang menjadi sumber energi awal bagi produsen berasal dari...",
+                options: ["Air Tanah", "Pupuk Kimia", "Sinar Matahari", "Angin"],
+                answer: 2
+            },
+            {
+                q: "10. Mengapa keanekaragaman makhluk hidup sangat penting bagi keseimbangan ekosistem?",
+                options: [
+                    "Agar rantai makanan dan jaring-jaring makanan tetap terjaga stabil",
+                    "Agar hewan herbivora bisa punah",
+                    "Agar tidak perlu ada pengurai",
+                    "Agar jumlah tumbuhan berkurang"
+                ],
+                answer: 0
+            }
+        ];
+
+        function renderQuiz() {
+            const container = document.getElementById('quiz-container');
+            container.innerHTML = '';
+
+            lkpdQuestions.forEach((item, qIdx) => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs sm:text-sm";
+                
+                let optionsHTML = '';
+                item.options.forEach((opt, oIdx) => {
+                    optionsHTML += `
+                        <label class="flex items-start gap-2.5 p-2 rounded-lg bg-white border border-slate-200 cursor-pointer hover:bg-emerald-50 transition-all">
+                            <input type="radio" name="question-${qIdx}" value="${oIdx}" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+                            <span class="text-slate-700">${opt}</span>
+                        </label>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <p class="font-bold text-slate-800 mb-2.5">${item.q}</p>
+                    <div class="space-y-1.5">
+                        ${optionsHTML}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function evaluateLKPD() {
+            let score = 0;
+            lkpdQuestions.forEach((item, qIdx) => {
+                const selected = document.querySelector(`input[name="question-${qIdx}"]:checked`);
+                if (selected && parseInt(selected.value) === item.answer) {
+                    score += 10;
+                }
+            });
+
+            const scoreBadge = document.getElementById('score-badge');
+            const scoreVal = document.getElementById('user-score');
+            scoreVal.innerText = score;
+            scoreBadge.classList.remove('hidden');
+
+            if (score >= 70) {
+                playSound('win');
+            } else {
+                playSound('wrong');
+            }
+
+            // Scroll smoothly to top of LKPD to show score badge
+            document.getElementById('tab-lkpd').scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetLKPD() {
+            document.getElementById('lkpd-form').reset();
+            document.getElementById('score-badge').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
